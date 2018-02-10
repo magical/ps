@@ -45,19 +45,26 @@ func EnumProcesses(pids []uint32) (n int, err error) {
 }
 
 func EnumProcessModule(process windows.Handle) (h windows.Handle, err error) {
-	var hmodule windows.Handle
+	var module [1]windows.Handle
+	_, err = EnumProcessModules(process, module[:])
+	return module[0], err
+}
+
+func EnumProcessModules(process windows.Handle, modules []windows.Handle) (n int, err error) {
 	var needed int32
+	const handleSize = unsafe.Sizeof(modules[0])
 	r1, _, e1 := procEnumProcessModules.Call(
 		uintptr(process),
-		uintptr(unsafe.Pointer(&hmodule)),
-		4,
+		uintptr(unsafe.Pointer(&modules[0])),
+		handleSize*uintptr(len(modules)),
 		uintptr(unsafe.Pointer(&needed)),
 	)
 	if r1 == 0 {
 		err = errno(e1)
 		return 0, err
 	}
-	return hmodule, nil
+	n = int(uintptr(needed) / handleSize)
+	return n, nil
 }
 
 func GetModuleBaseName(process windows.Handle, module windows.Handle, outString *uint16, size uint32) (n int, err error) {
