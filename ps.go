@@ -51,7 +51,6 @@ func getProcessName(pid uint32) (string, error) {
 	if err != nil {
 		return "", &SyscallError{"EnumProcessModule", err}
 	}
-	defer windows.CloseHandle(mod)
 	//fmt.Println(mod, err)
 	var s = make([]uint16, 255)
 	n, err := GetModuleBaseName(h, mod, &s[0], uint32(len(s)))
@@ -75,11 +74,6 @@ func printModules(pid uint32) error {
 	if n < len(modules) {
 		modules = modules[:n]
 	}
-	defer func() {
-		for _, mod := range modules {
-			windows.CloseHandle(mod)
-		}
-	}()
 	var buf = make([]uint16, 255)
 	for i, mod := range modules {
 		//fmt.Println(mod, err)
