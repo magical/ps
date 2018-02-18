@@ -1,12 +1,38 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
 	"golang.org/x/sys/windows"
 )
 
 func main() {
+	pid := flag.Int("p", 0, "pid to scan [default: all]")
+	flag.Parse()
+	if *pid != 0 {
+		printModules(uint32(*pid))
+	} else {
+		listProcesses()
+	}
+}
+
+type Uint32Slice []uint32
+
+func (s Uint32Slice) Len() int           { return len(s) }
+func (s Uint32Slice) Less(i, j int) bool { return s[i] < s[j] }
+func (s Uint32Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+type SyscallError struct {
+	call string
+	err  error
+}
+
+func (e *SyscallError) Error() string {
+	return fmt.Sprintf("%s: %v", e.call, e.err)
+}
+
+func listProcesses() {
 	var pids []uint32 = make([]uint32, 1000)
 	n, err := EnumProcesses(pids)
 	if err != nil {
@@ -24,21 +50,6 @@ func main() {
 			printModules(id)
 		}
 	}
-}
-
-type Uint32Slice []uint32
-
-func (s Uint32Slice) Len() int           { return len(s) }
-func (s Uint32Slice) Less(i, j int) bool { return s[i] < s[j] }
-func (s Uint32Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-type SyscallError struct {
-	call string
-	err  error
-}
-
-func (e *SyscallError) Error() string {
-	return fmt.Sprintf("%s: %v", e.call, e.err)
 }
 
 func getProcessName(pid uint32) (string, error) {
