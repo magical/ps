@@ -91,6 +91,7 @@ func printModules(pid uint32) error {
 	if n < len(modules) {
 		modules = modules[:n]
 	}
+	fmt.Println("Modules:")
 	var buf = make([]uint16, 255)
 	for i, mod := range modules {
 		//fmt.Println(mod, err)
@@ -105,11 +106,11 @@ func printModules(pid uint32) error {
 }
 
 func printThreads(pid uint32) error {
-	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPALL, pid)
+	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPTHREAD, 0)
 	if err != nil {
 		return err
 	}
-	fmt.Println("---")
+	fmt.Println("Threads:")
 	var thread ThreadEntry32
 	thread.Size = uint32(unsafe.Sizeof(thread))
 	for err = Thread32First(snapshot, &thread); err == nil; err = Thread32Next(snapshot, &thread) {
@@ -119,7 +120,9 @@ func printThreads(pid uint32) error {
 			continue
 		}
 		*/
-		fmt.Println(thread.ThreadID)
+		if thread.OwnerProcessID == pid {
+			fmt.Printf("\t%d\n", thread.ThreadID)
+		}
 	}
 	if err == windows.ERROR_NO_MORE_FILES {
 		return nil
