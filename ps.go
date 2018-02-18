@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -11,7 +12,12 @@ func main() {
 	pid := flag.Int("p", 0, "pid to scan [default: all]")
 	flag.Parse()
 	if *pid != 0 {
-		printModules(uint32(*pid))
+		if err := printModules(uint32(*pid)); err != nil {
+			fmt.Println(err)
+		}
+		if err := printThreads(uint32(*pid)); err != nil {
+			fmt.Println(err)
+		}
 	} else {
 		listProcesses()
 	}
@@ -96,4 +102,27 @@ func printModules(pid uint32) error {
 		fmt.Printf("\t%d: %s\n", i, s)
 	}
 	return nil
+}
+
+func printThreads(pid uint32) error {
+	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPALL, pid)
+	if err != nil {
+		return err
+	}
+	fmt.Println("---")
+	var thread ThreadEntry32
+	thread.Size = uint32(unsafe.Sizeof(thread))
+	for err = Thread32First(snapshot, &thread); err == nil; err = Thread32Next(snapshot, &thread) {
+		/*h, err := windows.OpenThread(thread.ThreadID)
+		if err != nil {
+			fmt.Println("OpenThread(%d): %v\n",thread.ThreadID, err)
+			continue
+		}
+		*/
+		fmt.Println(thread.ThreadID)
+	}
+	if err == windows.ERROR_NO_MORE_FILES {
+		return nil
+	}
+	return err
 }
