@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -14,8 +15,9 @@ func main() {
 	if *pid != 0 {
 		if err := printModules(uint32(*pid)); err != nil {
 			fmt.Println(err)
-		}
-		if err := printThreads(uint32(*pid)); err != nil {
+		} else if err := printThreads(uint32(*pid)); err != nil {
+			fmt.Println(err)
+		} else if err := printVirtualMemoryPID(uint32(*pid)); err != nil {
 			fmt.Println(err)
 		}
 	} else {
@@ -128,4 +130,99 @@ func printThreads(pid uint32) error {
 		return nil
 	}
 	return err
+}
+
+func printVirtualMemoryPID(pid uint32) error {
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, false, pid)
+	if err != nil {
+		return &SyscallError{"OpenProcess", err}
+	}
+	defer windows.CloseHandle(h)
+	return printVirtualMemory(h)
+}
+
+func printVirtualMemory(h windows.Handle) error {
+	fmt.Println("Virtual memory:")
+	var address uintptr = 0
+	var info MemoryBasicInfo
+	for address = 0; ; address = info.BaseAddress + info.RegionSize {
+		err := VirtualQueryEx(h, address, &info)
+		if err != nil {
+			if err == syscall.Errno(87) {
+				return nil
+			}
+			return err
+		}
+		if info.State == MEM_FREE {
+			continue
+		}
+		fmt.Printf("\t%08x-%08x size: % 8x state: %-10s type: %-10s protect: %s\n",
+			info.BaseAddress,
+			info.BaseAddress+info.RegionSize,
+			info.RegionSize,
+			stateName(info.State),
+			typeName(info.Type),
+			protectName(info.Protect),
+		)
+	}
+}
+
+func typeName(state uint32) string {
+	switch state {
+	case 0:
+		return ""
+	case MEM_IMAGE:
+		return "image"
+	case MEM_MAPPED:
+		return "mapped"
+	case MEM_PRIVATE:
+		return "private"
+	default:
+		return fmt.Sprintf("unknown (%x)", state)
+	}
+}
+
+func stateName(state uint32) string {
+	switch state {
+	case 0:
+		return ""
+	case MEM_FREE:
+		return "free"
+	case MEM_COMMIT:
+		return "commit"
+	case MEM_RESERVE:
+		return "reserve"
+	default:
+		return fmt.Sprintf("unknown (%x)", state)
+	}
+}
+
+func protectName(protect uint32) string {
+	if protect == 0 {
+		return ""
+	}
+	mod := " "
+	if protect&0x100 != 0 {
+		mod = "g"
+	}
+	switch protect & 0xff {
+	case 0x1:
+		return mod + "---"
+	case 0x2:
+		return mod + "r--"
+	case 0x4:
+		return mod + "rw-"
+	case 0x8:
+		return mod + "rc-"
+	case 0x10:
+		return mod + "--x"
+	case 0x20:
+		return mod + "r-x"
+	case 0x40:
+		return mod + "rwx"
+	case 0x80:
+		return mod + "rcx"
+	default:
+		return fmt.Sprintf("unknown (%x)", protect)
+	}
 }
