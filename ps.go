@@ -1,24 +1,52 @@
 package main
 
 import (
+	"encoding/binary"
 	"flag"
 	"fmt"
+	"os"
 	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
+func usage() {
+	flag.PrintDefaults()
+	fmt.Println()
+	fmt.Println("If no process id is specified, ps outputs a list of")
+	fmt.Println("all processes and modules.")
+	fmt.Println()
+	fmt.Println("If a process id is specified, ps outputs the modules,")
+	fmt.Println("thread IDs, and mapped pages of memory for that process.")
+	fmt.Println()
+	fmt.Println("If the -addr option is given then -p must be given as well;")
+	fmt.Println("and ps will attempt to read a single word of memory from")
+	fmt.Println("that address in the given process.")
+	fmt.Println()
+	os.Exit(1)
+}
+
 func main() {
 	pid := flag.Int("p", 0, "pid to scan [default: all]")
+	addr := flag.Uint64("addr", 0, "address to read from")
+	flag.Usage = usage
 	flag.Parse()
-	if *pid != 0 {
+	if *addr != 0 {
+		if *pid == 0 {
+			fmt.Fprintln(os.Stderr, "error: -addr given without -p")
+			os.Exit(1)
+		}
+		if err := printMemoryWord(*pid, *addr); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+	} else if *pid != 0 {
 		if err := printModules(uint32(*pid)); err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 		} else if err := printThreads(uint32(*pid)); err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 		} else if err := printVirtualMemoryPID(uint32(*pid)); err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 		}
 	} else {
 		listProcesses()
@@ -225,4 +253,27 @@ func protectName(protect uint32) string {
 	default:
 		return fmt.Sprintf("unknown (%x)", protect)
 	}
+}
+
+func printMemoryWord(pid int, addr uint64) error {
+	if pid < 1 {
+		return fmt.Errorf("invalid pid: %d", pid)
+	}
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, false, uint32(pid))
+	if err != nil {
+		return &SyscallError{"OpenProcess", err}
+	}
+	defer windows.CloseHandle(h)
+
+	var buf [4]byte
+	var nread uintptr
+	if err := ReadProcessMemory(h, uintptr(addr), &buf[0], 4, &nread); err != nil {
+		return err
+	}
+	if nread != 4 {
+		return fmt.Errorf("read failed")
+	}
+	word := binary.LittleEndian.Uint32(buf[:])
+	fmt.Printf("%08x", word)
+	return nil
 }

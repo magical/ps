@@ -42,7 +42,10 @@ func Thread32Next(snapshot windows.Handle, procEntry *ThreadEntry32) (err error)
 
 ///// not actually part of toolhelp
 
-var procVirtualQueryEx = kernel32.NewProc("VirtualQueryEx")
+var (
+	procVirtualQueryEx    = kernel32.NewProc("VirtualQueryEx")
+	procReadProcessMemory = kernel32.NewProc("ReadProcessMemory")
+)
 
 //https://msdn.microsoft.com/en-us/library/windows/desktop/aa366775(v=vs.85).aspx
 const (
@@ -71,6 +74,20 @@ func VirtualQueryEx(process windows.Handle, address uintptr, buffer *MemoryBasic
 		address,
 		uintptr(unsafe.Pointer(buffer)),
 		unsafe.Sizeof(*buffer),
+	)
+	if r1 == 0 {
+		err = errno(e1)
+	}
+	return
+}
+
+func ReadProcessMemory(process windows.Handle, address uintptr, buffer *uint8, size int, numBytesRead *uintptr) (err error) {
+	r1, _, e1 := procReadProcessMemory.Call(
+		uintptr(process),
+		address,
+		uintptr(unsafe.Pointer(buffer)),
+		uintptr(size),
+		uintptr(unsafe.Pointer(numBytesRead)),
 	)
 	if r1 == 0 {
 		err = errno(e1)
