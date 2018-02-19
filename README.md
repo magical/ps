@@ -4,7 +4,7 @@ ps
 `ps` is a small program which demonstrates how to use the Windows API to
 enumerate and inspect processes.
 
-`ps` was tested with Go 1.6, and should work with any later version.
+`ps` was tested with Go 1.6 on Windows 10. It should work with any later version of Go. It will not work on operating systems other than Windows.
 
 Installation
 ------------
