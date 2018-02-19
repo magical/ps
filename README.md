@@ -42,7 +42,7 @@ along with the list of modules (DLLs) in each process.
 
 Prints information about the process with PID 1234, including: modules, thread IDs, and a list of mapped virtual memory pages.
 
-    ps -p 1234 -addr 0x7774000
+    ps -p 1234 -addr 0x77740000
 
 Prints the DWORD at virtual address 0x77740000 in process 1234, assuming
 that it is a valid address.
