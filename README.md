@@ -9,7 +9,7 @@ enumerate and inspect processes.
 Installation
 ------------
 
-    go install github.com/magical/ps
+    go get github.com/magical/ps
 
 Installation, for people who have never used Go
 ------------
@@ -18,7 +18,7 @@ Installation, for people who have never used Go
    to download and install Go.
    Be sure to set the GOPATH environment variable to some suitable directory before continuing.
 
-2. Run `go install github.com/magical/ps` to download and build this `ps`.
+2. Run `go get github.com/magical/ps` to download and build `ps`.
    This command will clone this repository to `$GOPATH/src/github.com/magical/ps`,
    and download the `golang.org/x/sys` repository (which we depend on) to
    `$GOPATH/src/github.com/x/sys`.
